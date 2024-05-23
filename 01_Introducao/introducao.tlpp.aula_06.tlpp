@@ -1,0 +1,25 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+
+
+// Exemplo para chamada de metodo estatico 
+
+NAMESPACE introducao.tlpp
+
+Function U_AULA_06 as logical 
+
+    Local lRPC as logical 
+    Local lRet as logical 
+    Local cJsonReceiraWS as character
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif 
+
+    cJsonReceiraWS := introducao.tlpp.pessoa():getJsonReceitaWS('33.649.575/0001-99')
+    If lRPC
+        rpcClearEnv()
+    Endif 
+
+Return lRet

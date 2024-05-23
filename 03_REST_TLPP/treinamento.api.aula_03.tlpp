@@ -1,0 +1,93 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+
+NAMESPACE treinamento.api
+
+@get(endpoint='/treinamento/listaclientes', description='Listagem de clientes com passagem de parametros via querystring')
+Function U_GET_CLIENTES as logical 
+
+    Local lRPC                  as logical 
+    Local cCliente              as character
+    Local cLoja                 as character 
+    Local cEstado               as character
+    Local cCidade               as character
+    Local cPessoa               as character 
+    Local cTipo                 as character 
+    Local cSQL                  as character 
+    Local cAliasSQL             as character 
+
+    Local jQueryStr             as json  
+    Local jResp                 as json  
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif
+
+    jQueryStr       :=  oRest:getQueryRequest() // recebe parametros passado pela api 
+    cCliente        := jQueryStr['cCliente']
+    cLoja           := jQueryStr['cLoja']
+    cEstado         := jQueryStr['cEstado']
+    cCidade         := jQueryStr['cCidade']
+    cPessoa         := jQueryStr['cPessoa']
+    cTipo           := jQueryStr['cTipo']
+
+    cSQL            := " SELECT * FROM " + RetSqlName("SA1") + " SA1 " 
+    cSQL            += CRLF + " Where D_E_L_E_T_ = ''   "
+
+    If .not. empty(cCliente)
+        cSQL        +=    CRLF + " AND A1_COD = '" + cCliente + " ' "
+    EndIf
+
+    If .not. empty(cLoja)
+        cSQL        +=    CRLF + " AND A1_LOJA = '" + cLoja + " ' "
+    EndIf
+
+    If .not. empty(cEstado)
+        cSQL        +=    CRLF + " AND A1_EST = '" + cEstado + " ' "
+    EndIf
+
+    If .not. empty(cCidade)
+        cSQL        +=    CRLF + " AND A1_MUN LIKE  '%" + cCliente + "%' "
+    EndIf
+
+    If .not. empty(cPessoa)
+        cSQL        +=    CRLF + " AND A1_PESSOA =  '" + cPessoa + "' "
+    EndIf
+
+    If .not. empty(cTipo)
+        cSQL        +=    CRLF + " AND A1_TIPO  = '" + cTipo + "' "
+    EndIf
+    
+    cAliasSQL           := GetNextAlias()
+
+    MpsysOpenQuery(cSQL,cAliasSQL)
+
+
+    jResp               :=  JsonObject():new()
+
+    jResp['clientes']   := array(0)
+
+    while .not. (cAliasSQL)->(Eof())
+
+        jCliente                := JsonObject():new()
+        jCliente['codigo']      := (cAliasSQL)->A1_COD
+        jCliente['loja']        := (cAliasSQL)->A1_LOJA
+        jCliente['nome']        := (cAliasSQL)->(AllTrim(A1_NOME))
+        jCliente['fantasia']    := (cAliasSQL)->(AllTrim(A1_NREDUZ))
+        jCliente['endereco']    := (cAliasSQL)->(AllTrim(A1_END))
+
+        AAdd(jResp['clientes'],jCliente)
+
+        (cAliasSQL)->(DBSkip())
+    EndDo
+
+    (cAliasSQL)->(DBCloseArea())
+
+    oRest:setResponse(jResp:toJson())
+
+    If lRPC
+        rpcClearEnv()
+    Endif 
+
+Return .T.

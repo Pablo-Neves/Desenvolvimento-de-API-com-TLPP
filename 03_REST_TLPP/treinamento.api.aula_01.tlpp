@@ -1,0 +1,74 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+
+NAMESPACE treinamento.api
+
+/*/{Protheus.doc} U_AULA_01
+description)
+    @type  Function
+    @author Pablo 
+    @since 23/04/2024
+   
+    /*/
+
+//-- http://localhost:8081/rest
+@GET(endpoint ='/teste', description ='Servico rest de testes - metodo get')
+Function U_AULA_01() as logical 
+
+    Local lRPC as logical 
+    Local lRet as Logical 
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif 
+
+    oRest:setResponse('{"Hello":"Olá primeiro teste!!"}')
+    lRet := .T. 
+
+    If lRPC
+        rpcClearEnv()
+    Endif 
+
+Return lRet  
+
+
+
+// CLASSE 
+
+class AULA_01 
+
+    public method new() constructor 
+
+    @GET(endpoint ='/teste2', description ='Exemplo teste de um metodo de um classe para api rest  - metodo get')
+    public method teste() as logical 
+
+end class 
+
+method new() class AULA_01
+
+return self
+
+method teste() class AULA_01 
+
+    Local lRPC as logical 
+    Local lRet as Logical 
+    Local jResp as json 
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif 
+
+    jResp               :=  JsonObject():new()
+    jResp['hello']      :=  'Olá. esse é o meu primeiro teste com classe!!'
+
+    oRest:setResponse(jResp:toJson())
+
+    lRet := .T. 
+
+    If lRPC
+        rpcClearEnv()
+    Endif 
+
+Return lRet  
+

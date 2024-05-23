@@ -1,0 +1,130 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+
+NAMESPACE treinamento.api
+
+class CLIENTES 
+
+    public method new() constructor 
+
+    @get(endpoint='/treinamento/clientes', description='Metodo exemplo para listagem de clientes')
+    public method listar() as logical 
+
+    @get(endpoint='/treinamento/clientes/:codigo/:loja', description='Metodo exemplo para listagem de cliente selecionado')
+    public method detalhes_cliente() as logical 
+
+end class
+
+method new() class CLIENTES 
+
+return self 
+
+
+method detalhes_cliente() class CLIENTES 
+
+    Local lRPC                  as logical 
+    Local jPathParm             as json
+    Local jResp                 as json 
+    Local cCodigo               as character
+    Local cLoja                 as character
+    Local aCampos               as array 
+    Local x 
+
+                       
+
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif 
+
+    jPathParm                   := oRest:getPathParamsRequest() // recebe os paramentros da URL
+    jResp                       := JsonObject():new()
+    cCodigo                     := jPathParm['codigo']
+    cLoja                       := jPathParm['loja']
+
+    DBSelectArea('SA1')
+    DbsetOrder(1)
+    DbSeek(xFilial(alias()) + cCodigo + cLoja)
+
+    If .not. Found()
+        
+        jResp['erro'] := 'Cliente nao encontrado!!'
+        
+        oRest:setStatusCode(400)
+        oRest:setResponse(jResp:toJson())
+        
+        return .T.
+    Endif
+    
+
+    aCampos                     := fwSx3Util():getAllFields(alias(),.F.) // onde .F. tras apenas campos reais
+
+    try 
+        For x := 1 to Len(aCampos) 
+            jResp[aCampos[x]] := &(aCampos[x])
+        Next
+    catch err
+            jResp['erro'] := err:description + CRLF + CRLF  + err:errorstack
+
+            orest:setFault(jResp:toJson())
+            Return .T.
+    endtry
+    oRest:setResponse(jResp:toJson())
+
+    If lRPC 
+        rpcClearEnv()
+    Endif
+
+Return .T.
+
+Method listar() class CLIENTES 
+
+    Local lRPC                  as logical 
+    Local cErrorStack           as character 
+    Local cErrorDescr           as character 
+    Local err                   as object 
+    Local jResp                 as json 
+    Local jCliente              as json  
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif 
+
+    try
+
+        jResp                   := JsonObject():new()
+        jResp['SA1']            := array(0)
+
+        DBSelectArea("SA1")
+        DbsetOrder(1)
+        DbGoTop()
+
+        While .not. Eof()
+
+            jCliente                := JsonObject():new()
+            
+            jCliente['codigo']      := A1_COD
+            jCliente['loja']        := A1_LOJA
+            jCliente['nome']        := AllTrim(A1_NOME)
+            jCliente['fantasia']    := AllTrim(A1_NREDUZ)
+            jCliente['endereco']    := AllTrim(A1_END)
+
+            add(jResp['SA1'],jCliente)
+
+            DBSkip()
+
+        EndDO
+
+        oRest:oRest:setResponse(jResp:toJson())
+    
+    catch  err 
+    
+        cErrorStack         := err:errorstack 
+        cErrorDescr         := err:description
+
+    endtry
+
+
+Return .T. 
