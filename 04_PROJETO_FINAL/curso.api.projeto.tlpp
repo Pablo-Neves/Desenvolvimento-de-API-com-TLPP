@@ -1,0 +1,542 @@
+#include 'totvs.ch'
+#include 'tlpp-core.th'
+
+namespace curso.api.projeto
+
+@get('/clientes')
+Function u_lista_clientes as logical 
+
+    Local cQuery        as character
+    Local cWhere        as character 
+    Local cResult       as character 
+    Local cCodigo       as character 
+    Local cLoja         as character 
+    Local nPage         as numeric 
+    Local nPageSize     as numeric 
+    Local jResult       as json
+    Local jQueryPar     as json 
+    Local jheaderReq    as json 
+    Local jHeaderRes    as json 
+    Local oQuery        as object 
+
+    jHeaderReq          := oRest:getHeaderRequest()
+    jQueryPar           := oRest:getQueryRequest()
+
+    cCodigo             := jQueryPar['codigo'   ]
+    cLoja               := jQueryPar['loja'     ]
+    cSearch             := jQueryPar['search'   ]
+    cOrder              := jQueryPar['order'    ]
+    nPage               := jQueryPar['page'     ]        ; nPage     := Val(nPage)
+    nPageSize           := jQueryPar['pageSize' ]        ; nPageSize := Val(nPageSize)
+
+    If ! Valtype(cOrder) == 'C'
+        cOrder := 'A1_COD,  A1_LOJA'
+    Else 
+        DO CASE 
+            CASE cOrder == 'codigo' .or. cOrder == 'loja'
+                cOrder := 'A1_COD,  A1_LOJA'
+            CASE cOrder == 'nome' 
+                cOrder := 'A1_NOME
+            CASE cOrder == 'endereco' 
+                cOrder := 'A1_END'
+            OTHERWISE
+                cOrder := 'A1_COD,  A1_LOJA'
+        END CASE 
+    Endif
+
+    jHeaderRes                      := JsonObject():new()
+    jHeaderRes['Content-Type']      := 'application/json'
+
+    cQuery := "SELECT #QueryFields# FROM ("
+    cQuery += CRLF + " SELECT * FROM "  + RetSqlName("SA1") + " SA1) SA1 "
+    cQuery += CRLF + " WHERE #QueryWhere#"
+
+    cWhere := "D_E_L_E_T_ = '' "
+
+    If ! Empty(cSearch)
+        If Empty(jQueryPar[ 'order'] ) .or. jQueryPar[ 'order'] == 'nome'
+            cWhere += CRLF + " AND A1_NOME LIKE '%" + AllTrim(cSearch) + "%' "
+        ElseIF  jQueryPar[ 'order'] == 'endereco' 
+            cWhere += CRLF + " AND A1_END LIKE '%" + AllTrim(cSearch) + "%' "
+        ElseIF  jQueryPar[ 'order'] == 'codigo'
+            cWhere += CRLF + " AND A1_COD LIKE '%" + AllTrim(cSearch) + "%' "
+        ElseIF  jQueryPar[ 'order'] == 'cidade'
+            cWhere += CRLF + " AND A1_MUN LIKE '%" + AllTrim(cSearch) + "%' "
+        ElseIF  jQueryPar[ 'order'] == 'estado'
+            cWhere += CRLF + " AND A1_EST LIKE '%" + AllTrim(cSearch) + "%' "
+        Else 
+            cWhere += CRLF + " AND A1_NOME LIKE '%" + AllTrim(cSearch) + "%' "
+        EndIF
+    Endif 
+
+    oQuery:= FwAdapterBaseV2():new('GET', .T.)
+    oQuery:AddMapFields('codigo'    ,     'A1_COD'      ,   .T.,    .T.)
+    oQuery:AddMapFields('loja'      ,     'A1_LOJA'     ,   .T.,    .T.)
+    oQuery:AddMapFields('nome'      ,     'A1_NOME'     ,   .T.,    .T.)
+    oQuery:AddMapFields('tipo'      ,     'A1_PESSOA'   ,   .T.,    .T.)
+    oQuery:AddMapFields('endereco'  ,     'A1_END'      ,   .T.,    .T.)
+    oQuery:AddMapFields('bairro'    ,     'A1_BAIRRO'   ,   .T.,    .T.)
+    oQuery:AddMapFields('cidade'    ,     'A1_MUN'      ,   .T.,    .T.)
+    oQuery:AddMapFields('estado'    ,     'A1_EST'      ,   .T.,    .T.)
+    oQuery:AddMapFields('cep'       ,     'A1_CEP'      ,   .T.,    .T.)
+
+    oQuery:SetQuery(cQuery)
+    oQuery:SetWhere(cWhere)
+    oQuery:SetOrder(cOrder)
+    oQuery:SetPageSize(nPageSize)
+    oQuery:SetPage(nPage)
+
+    IF oQuery:execute()
+        oQuery:fillGetResponse()
+        cREsult := oQuery:getJsonResponse()
+    EndIF 
+
+    jResult := JsonObject():new()
+    jResult:fromJson(cResult)
+
+    oRest:SetResponse(cResult)
+return .T.
+
+@get('/estados')
+
+Function u_lista_estados 
+
+    Local cQuery        as character
+    Local cWhere        as character 
+    Local cResult       as character 
+    Local nPage         as numeric 
+    Local nPageSize     as numeric 
+    Local jResult       as json
+    Local jQueryPar     as json 
+    Local jheaderReq    as json 
+    Local jHeaderRes    as json 
+    Local oQuery        as object 
+
+    jHeaderRes                      := JsonObject():new()
+    jHeaderRes['Content-Type']      := 'application/json'
+
+    cQuery := "SELECT #QueryFields# FROM ("
+    cQuery += CRLF + " SELECT * FROM "  + RetSqlName("SX5") + " SX5 ) SX5 "
+    cQuery += CRLF + " WHERE #QueryWhere#"
+
+    cWhere := " D_E_L_E_T_ = '' "
+    cWhere += CRLF + " AND X5_TABELA = '12'"
+
+    IF .not. empty(oRest:getQueryRequest()['filter'])
+        cWhere += CRLF + " AND X5_DESCRI LIKE '%" + oRest:getQueryRequest()['filter'] + "%' "
+    EndIF
+
+    cOrder := 'X5_DESCRI'
+    nPageSize := 30
+    npage := 1
+
+    oQuery := FwAdapterBaseV2():new('GET', .T.)
+    oQuery:AddMapFields('value'         ,     'X5_CHAVE'      ,   .T.,    .T.)
+    oQuery:AddMapFields('label'         ,     'X5_DESCRI'     ,   .T.,    .T.)
+
+    oQuery:SetQuery(cQuery)
+    oQuery:SetWhere(cWhere)
+    oQuery:SetOrder(cOrder)
+    oQuery:SetPageSize(nPageSize)
+    oQuery:SetPage(nPage)
+
+    IF oQuery:execute()
+        oQuery:fillGetResponse()
+        cResult := oQuery:getJsonResponse()
+    EndIF 
+
+    jResult := JsonObject():new()
+    jResult:fromJson(cResult)
+
+    oRest:SetResponse(cResult)
+
+Return .T.
+
+@get('/cidades/:estado')
+Function u_lista_cidades as logical 
+
+    Local cQuery        as character
+    Local cWhere        as character 
+    Local cResult       as character 
+    Local nPage         as numeric 
+    Local nPageSize     as numeric 
+    Local jResult       as json
+    Local jPathPar     as json 
+    Local jheaderReq    as json 
+    Local jHeaderRes    as json 
+    Local oQuery        as object 
+
+    jHeaderRes                      := JsonObject():new()
+    jHeaderRes['Content-Type']      := 'application/json'
+    jPathPar                        := oRest:getPathParamsRequest()
+
+    cQuery := "SELECT #QueryFields# FROM ("
+    cQuery += CRLF + " SELECT * FROM "  + RetSqlName("CC2") + " CC2 ) CC2 "
+    cQuery += CRLF + " WHERE #QueryWhere#"
+
+    cWhere := " D_E_L_E_T_ = '' "
+     cWhere += CRLF + " AND CC2_EST =  '"+ jPathPar['estado']+ "' 
+
+    IF .not. empty(oRest:getQueryRequest()['filter'])
+        cWhere += CRLF + " AND CC2_EST LIKE '%" + oRest:getQueryRequest()['filter'] + "%' "
+    EndIF
+
+    cOrder := 'CC2_EST,CC2_MUN'
+    nPageSize := 200
+    npage := 1
+
+    oQuery := FwAdapterBaseV2():new('GET', .T.)
+    oQuery:AddMapFields('estado'         ,     'CC2_EST'      ,   .T.,    .T.)
+    oQuery:AddMapFields('cidade'         ,     'CC2_MUN'     ,   .T.,    .T.)
+    oQuery:AddMapFields('codibge'        ,     'CC2_CODMUN'     ,   .T.,    .T.)
+    oQuery:AddMapFields('value'          ,     'CC2_MUN'     ,   .T.,    .T., {'CC2_MUN', 'C', 30, 0}, 'CC2.VALUE')
+    oQuery:AddMapFields('label'          ,     'CC2_MUN'     ,   .T.,    .T., {'CC2_MUN', 'C', 30, 0}, 'CC2.LABEL')
+
+    oQuery:SetQuery(cQuery)
+    oQuery:SetWhere(cWhere)
+    oQuery:SetOrder(cOrder)
+    oQuery:SetPageSize(nPageSize)
+    oQuery:SetPage(nPage)
+
+    IF oQuery:execute()
+        oQuery:fillGetResponse()
+        cResult := oQuery:getJsonResponse()
+    EndIF 
+
+    jResult := JsonObject():new()
+    jResult:fromJson(cResult)
+
+    oRest:SetResponse(cResult)
+
+Return .T. 
+
+@get('cidades/:estado/:cidade')
+Function u_detalhes_cidade as logical 
+    
+    Local jResponse     as json 
+    Local jPathPar      as json 
+    Local jheaderReq    as json 
+    Local cEstado       as character 
+    Local cCidade       as character
+    Local cCodigo       as character 
+    Local cLoja         as character
+
+    jPathPar                := oRest:getPathParamsRequest()
+    jheaderReq              := oREst:getHeaderRequest()
+    jResponse               := jsonObject():new()
+    
+    cCidade                 :=jPathPar['cidade']
+    cEstado                 :=jPathPar['estado']
+    
+    cCodigo                 := jHeaderReq['codcliente']
+    cLoja                   := jHeaderReq['lojcliente']
+
+    dbSelectArea("CC2")
+    dbSetOrder(4)
+    dbSeek(xFilial(Alias()) + cEstado + cCidade)
+
+    If ! Empty(cCodigo)
+        SA1->(dbSetOrder(1), DbSeek(xFilial(Alias()) + cCodigo + cLoja))
+        CC2->(dbSetOrder(4), DbSeek(xFilial(Alias()) + SA1->(A1_EST + A1_MUN)))
+    EndIf
+
+    jResponse['value']      := alltrim(CC2->CC2_MUN)
+    jResponse['label']      := alltrim(CC2->CC2_MUN)
+
+    oRest:setResponse(jResponse:toJson())
+
+
+
+Return .T.
+
+@get('/estados/:estado')
+Function u_detalhes_estado as logical 
+
+    Local jResponse as json 
+    Local jPathPar as json 
+    Local cEstado as character 
+    
+    jPathPar                := oRest:getPathParamsRequest()
+    cEstado                 :=jPathPar['estado']
+
+    dbSelectArea("SX5")
+    dbSetOrder(1)
+    Dbseek(xfilial(Alias()) + '12' + cEstado)
+
+    jResponse               := jsonObject():new()
+    jResponse['value']      := alltrim(SX5->X5_CHAVE)
+    jResponse['value']      := alltrim(SX5->X5_DESCRI)
+
+    oRest:setResponse(jResponse:toJson())
+Return .T.
+
+@post('/cliente')
+Function u_novo_cliente as logical 
+
+    Local jQueryParams      as json 
+    Local jHeaderReq        as json 
+    Local jHeaderRes        as json
+    Local jBodyReq          as json 
+    Local cMsgLog           as character
+
+    jHeaderRes := JsonObject():new()
+    jHeaderRes['Content-Type'] := 'application/json'
+
+    jQueryParams            := oRest:getQueryRequest()
+    jHeaderReq              := oRest:getHeaderRequest()
+
+    jBodyReq                := JsonObject():new()
+    jBodyReq:fromJson(oRest:getBodyRequest())
+
+    lRet                    := grava_cliente(@jBodyReq, @cMsgLog)
+
+    IF lRet 
+        oRest:SetResponse(jBodyReq:toJson())
+    Else 
+        oRest:setStatusCode(500)
+        oRest:setFault(cMsgLog)
+    EndIF
+Return .T.
+
+@put('/cliente')
+Function u_atualiza_cliente as logical 
+
+    Local jQueryParams      as json 
+    Local jHeaderReq        as json 
+    Local jHeaderRes        as json
+    Local jBodyReq          as json 
+    Local cMsgLog           as character
+
+    jHeaderRes := JsonObject():new()
+    jHeaderRes['Content-Type'] := 'application/json'
+
+    jQueryParams            := oRest:getQueryRequest()
+    jHeaderReq              := oRest:getHeaderRequest()
+
+    jBodyReq                := JsonObject():new()
+    jBodyReq:fromJson(oRest:getBodyRequest())
+
+    lRet                    := grava_cliente(@jBodyReq, @cMsgLog)
+
+    IF lRet 
+        oRest:SetResponse(jBodyReq:toJson())
+    Else 
+        oRest:setStatusCode(500)
+        oRest:setFault(cMsgLog)
+    EndIF
+
+Return .T.
+
+Static Function grava_cliente(jCliente as json, cMsgLog as character) as logical 
+
+    Local cCodigo                   as character 
+    Local cLoja                     as character 
+    Local cNome                     as character 
+    Local cNReduz                   as character 
+    Local cPessoa                   as character 
+    Local cTipo                     as character 
+    Local cEnd                      as character 
+    Local cCep                      as character 
+    Local cBairro                   as character 
+    Local cCidade                   as character 
+    Local cCodMun                   as character 
+    Local cEstado                   as character 
+    Local cCampo                    as character 
+    Local lStatus                   as logical 
+    Local nOpc                      as numeric 
+    Local nPos                      as numeric 
+    Local aDados                    as array
+    Local aCampos                    as array
+
+    Local x as variant 
+    Local xValue as variant 
+    
+
+    Private lMsErroAuto as logical 
+
+    cCodigo     := jCliente['codigo']                 
+    cLoja       := jCliente['loja']               
+    cNome       := jCliente['nome']                
+    cPessoa     := jCliente['pessoa']                 
+    cEnd        := jCliente['endereco']               
+    cCep        := jCliente['cep']   
+    cCep        := if(ValType(cCep) <> 'C', '', cCep)             
+    cBairro     := fwNoAccent(decodeUTF8(jCliente['bairro'],'cp1252'))
+    cCidade     := jCliente['cidade']                 
+    cEstado     := jCliente['estado']              
+    lStatus     := jCliente['status'] 
+    cNReduz     := LEFT(cNome,TamSX3('A1_NREDUZ')[1])               
+    cTipo       := 'F'
+    
+    aDados  := array(0)
+    aCampos := array(0)
+
+    IF isInCallStack('curso.api.projeto.u_novo_cliente')
+        nOpc := 3
+    ElseIF isInCallStack('curso.api.projeto.u_atualiza_cliente')
+        nOpc := 4
+    EndIF
+
+    IF cEstado == 'EX'
+        
+        cTipo   := 'X'
+        cCep    := ''
+    Else 
+        CC2->(dbSetOrder(4), DbSeek(xFilial(Alias()) + cEstado + cCidade))
+        cCodMun:= CC2->CC2_CODMUN
+        cCidade:= CC2->CC2_MUN
+    
+    EndIF
+
+    IF nOpc == 3 
+
+        aadd(aDados,{'A1_LOJA', '01', Nil})
+    Else
+        SA1->(dbSetOrder(1), DbSeek(xFilial(Alias()) + cCodigo + cLoja)) 
+
+        aadd(aDados,{'A1_COD', SA1->A1_COD , Nil})
+        aadd(aDados,{'A1_LOJA', SA1->A1_LOJA , Nil})
+
+        cNReduz     := SA1->A1_NREDUZ
+    Endif 
+
+    aadd(aDados,{'A1_NOME'          , cNome,})
+    aadd(aDados,{'A1_NREDUZ'        , cNReduz,})
+    aadd(aDados,{'A1_PESSOA'        , cPessoa,})
+    aadd(aDados,{'A1_TIPO'          , cTipo,})
+    aadd(aDados,{'A1_END'           , cEnd,})
+    aadd(aDados,{'A1_CEP'           , cCep,})
+    aadd(aDados,{'A1_BAIRRO'        , cBairro,})
+    aadd(aDados,{'A1_EST'           , cEstado,})
+    IF cEstado <> 'EX'
+        aadd(aDados,{'A1_COD_MUN'   , cCodMun,})
+    ENDIF 
+    aadd(aDados,{'A1_MUN'           , cCidade,})
+    aadd(aDados,{'A1_MSBLQL'        , '2',})
+
+    IF nOPC == 4 
+        aCampos := fwSx3Util():getAllFields('SA1', .F.)
+
+        // tratamento feito no execauto de alteração que consiste em pegar o conteudo de todos os campos não passados no array  para manter as mesmas informacoes na alteracao
+        For x := 1 to Len(aCampos)
+
+            IF AllTrim(aCampos[x]) == 'A1_COD_MUN'
+                Loop
+            Endif 
+
+            cCampo := AllTrim(aCampos[x])
+            xValue := &('SA1->' + cCampo)
+            nPos   := aScan(aDados, {|xCampo| alltrim(xCampo[1])==cCampo})
+
+            IF nPos == 0
+                aadd(aDados, {cCampo, xValue, })
+            EndIF
+
+        Next x 
+    EndIF 
+
+    lMsErroAuto := .F. 
+
+    MsExecAuto({|x,y| Mata030(x, y)}, aDados,nOpc)
+
+    If lMsErroAuto
+        MostraErro('\data\', 'curso.api.cliente.execauto.erro.txt')
+        cMsgLog := memoread('\data\curso.api.cliente.execauto.erro.txt')
+        return .F.
+    EndIf 
+
+    jCliente['codigo'] := SA1->A1_COD
+    jCliente['loja']   := SA1->A1_LOJA
+Return .T.
+
+
+@get('/cliente')
+Function u_detalhe_cliente as logical 
+
+    Local jQueryParams      as json 
+    Local jHeaderReq        as json 
+    Local jHeaderRes        as json
+    Local jResponse         as json 
+    Local cCodigo           as character
+    Local cLoja             as character
+
+
+    jQueryParams            := oRest:getQueryRequest()
+    jHeaderReq              := oRest:getHeaderRequest()
+
+    jHeaderRes              := jsonObject():new()
+    jResponse               := jsonObject():new()
+
+    cCodigo                 := jQueryParams['codigo']
+    cLoja                   := jQueryParams['loja']; LEFT(cLoja,2)
+
+    dbSelectArea('SA1')
+    dbSetOrder(1)
+    DbSeek(xFilial(Alias()) + cCodigo + cLoja)
+
+    jResponse['codigo']     := SA1->A1_COD
+    jResponse['loja']       := SA1->A1_LOJA
+    jResponse['nome']       := ALLTRIM(SA1->A1_NOME)
+    jResponse['pessoa']     := SA1->A1_PESSOA
+    jResponse['endereco']   := SA1->A1_END
+    jResponse['cep']        := SA1->A1_CEP
+    jResponse['bairro']     := SA1->A1_BAIRRO
+    jResponse['cidade']     := SA1->A1_MUN
+    jResponse['estado']     := SA1->A1_EST
+
+    oRest:setResponse(jResponse:toJson())
+
+
+return .T.
+
+@delete('/cliente')
+Function u_del_cliente as logical 
+
+    Local jQueryParams      as json 
+    Local jHeaderReq        as json 
+    Local jHeaderRes        as json
+    Local jResp             as json 
+    Local cMsgLog           as character
+    Local aDados            as array 
+    Local cCodigo           as character
+    Local cLoja             as character
+    Local lRet              as logical 
+
+    jHeaderRes := JsonObject():new()
+    jHeaderRes['Content-Type'] := 'application/json'
+
+    jQueryParams            := oRest:getQueryRequest()
+    jHeaderReq              := oRest:getHeaderRequest()
+
+    cCodigo                 := jQueryParams['codigo']
+    cLoja                   := jQueryParams['loja']
+
+    SA1->(dbSetOrder(1), dbseek(xFilial(Alias()) + cCodigo + cLoja))
+
+    aDados := array(0)
+
+    aadd(aDados,{'A1_COD', SA1->A1_COD , Nil})
+    aadd(aDados,{'A1_LOJA', SA1->A1_LOJA , Nil})
+
+    lMsErroAuto := .F. 
+    lRet        := .T.
+
+    MsExecAuto({|x,y| Mata030(x, y)}, aDados,5)
+
+    If lMsErroAuto
+        MostraErro('\data\', 'curso.api.cliente.execauto.erro.txt')
+        cMsgLog := memoread('\data\curso.api.cliente.execauto.erro.txt')
+        lRet :=  .F.
+    EndIf 
+
+    jResp:= JsonObject():new()
+
+    IF lRet 
+        jResp['retorno'] := "Cliente deletado"
+        oRest:setResponse(jResp:toJson())
+    Else 
+        oRest:setStatusCode(500)
+        oRest:setFault(cMSgLog)
+    EndIf
+
+Return lRet

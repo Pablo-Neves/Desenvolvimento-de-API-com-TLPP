@@ -15,6 +15,11 @@ class aula_05 from FwAdapterBaseV2
 
     @put('/treinamento/fornecedores/update')
     public method update_fornecedor() as logical 
+
+    @delete('/treinamento/fornecedores/delete')
+    public method delete_fornecedor() as logical 
+
+    
 end class 
 
 method new() class aula_05 
@@ -23,7 +28,7 @@ return self
 
 Method update_fornecedor() class aula_05
 
- Local lRPC          as logical
+    Local lRPC          as logical
     Local jBodyReq      as json 
     Local aDados        as array 
     Local nOpc          as numeric 
@@ -342,4 +347,78 @@ Method lista_fornecedores() class aula_05
     endif
     
 Return .T.
+
+
+Method delete_fornecedor() class aula_05
+
+    Local lRPC          as logical
+    Local cError        as character
+    Local jResp         as json 
+    Local jHeader       as json 
+    Local cCodigo       as character
+    Local cLoja         as character
+    
+    private err         as object 
+    private lMsErroAuto as logical 
+
+    If type('cEmpAnt') <> 'C'
+        rpcSetEnv('99','01')
+        lRPC := .T.
+    Endif
+
+
+    try 
+
+        jHeader := oRest:getHeaderRequest() // recebe dados via header da requisicao
+
+        cCodigo := jHeader['codigo']
+        cLoja   := jHeader['loja']
+        
+        SA2->(DbSetOrder(1),DbSeek(xFilial(Alias()) + cCodigo + cLoja))
+
+        IF SA2->(Found())
+            aDados := {{"A2_COD"     ,SA2->A2_COD    , Nil},;
+                       {"A2_LOJA"    ,SA2->A2_LOJA      , NIL}}
+
+            lMsErroAuto := .F.
+            msExecAuto({|x,y| mata020(x,y)}, aDados, 5)
+
+            If lMsErroAuto
+                mostraerro('\data\', 'erro_sa2.txt')
+                cError := memoread('\data\erro_sa2.txt')
+
+                err:= errorClass():new()
+                err:description := cError
+
+                throw err
+            Endif 
+
+            jResp:= JsonObject():new()
+            jResp['retorno'] := 'REGISTRO EXCLUIDO!!'
+
+            oRest:SetResponse(jResp:toJson())
+
+        Else 
+             err := errorClass():new()
+             err:description := 'FORNECEDOR NAO ENCONTRADO'
+
+             throw err
+        Endif 
+    catch err 
+
+        cError := err:description
+
+        
+        jResp           := jsonObject():new()
+        jresp['error']  := cError
+
+        oRest:setFault(jResp:toJson())
+
+    endtry
+
+    if lRPC
+        rpcClearEnv()
+    endif
+
+Return 
 
